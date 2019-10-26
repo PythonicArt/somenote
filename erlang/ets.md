@@ -139,7 +139,7 @@ Matches the objects in table Tab against pattern Pattern.
 2 返回匹配到的元组
 match_object(Tab, Pattern) -> [Object]
 
-meridiem 
+meridiem
 
 5. 搜索
     select(Tab, MatchExpression) -> [Match]
@@ -194,7 +194,7 @@ meridiem
     把所有元组标记为 $1
     满足全部条件
         1. 元组的第一个元素 {element, 1, '$1'} == gandalf
-        2. 元组的长度 {size, '$1'} >= 2
+        2. 元组的个数 {size, '$1'} >= 2
     最后返回的结果 为 元组的第二个元素 {element,2,'$1'}
 
     2.
@@ -219,3 +219,66 @@ meridiem
     第二部分同理
 
     ```
+
+4. fun2ms, erlang 提供了一个方法， 将筛选的方法转化为 match_spec
+    fun2ms(LiteralFun) -> MatchSpec
+    1. LiteralFun 必须是临时函数， 使用fun定义传入fun2ms, 不能使用函数变量
+    2. 文件头必须包含 -include_lib("stdlib/include/ms_transform.hrl").
+    3. 在MatchSpec中不能使用的结构 比如 if case 等 不能在LiteraFun中使用， 外部方法函数无法在该函数内部被调用
+    4. LiteralFun 中可以使用外部的变量， 在解析时转为常量. 所以一切可以转为常量的都可以被使用， 而不能转为常量的， 都无法使用
+
+迭代
+1. 指针的方法取元素
+    头
+        first(Tab) -> Key | '$end_of_table'
+    尾
+        last(Tab) -> Key | '$end_of_table'
+    前一个
+        prev(Tab, Key1) -> Key2 | '$end_of_table'
+    下一个
+        next(Tab, Key1) -> Key2 | '$end_of_table'
+
+2. 限定单次匹配和搜索的结果的数量
+    select(Tab, MatchSpec, Limit) -> {[Match], Continuation} | '$end_of_table'
+    select(Continuation) -> {[Match], Continuation} | '$end_of_table'
+    match类似
+
+3. 遍历进行指定的操作  foldl foldr
+    类似于lists的方法， 不需要转成lists 再去调用相应的方法
+    对于  ordered_set, foldl是从前往后， foldr是从后往前
+
+4. 搜索后的结果进行操作
+
+select_delete(Tab, MatchSpec) -> NumDeleted
+
+select_replace(Tab, MatchSpec) -> NumReplaced
+    MatchSpec 里最后一步是  结果的构造， select_replace 把所有匹配到的元组用 构造后的结果进行替换
+    ```erlang
+        1> T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).
+        true
+        2> MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).
+        [{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
+        3> ets:select_replace(T, MS).
+        1
+        4> ets:tab2list(T).
+        [{key,[marker,1,2,3]}]
+
+        使用select_replace实现的ets元素的更新
+        [Old] = ets:lookup(T, Key),
+        New = update_object(Old),
+        Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
+
+    ```
+
+
+更新
+1. insert(Object), 插入一个同key的元素，会覆盖掉以前的元素
+2. update_element
+    update_element(Tab, Key, ElementSpec :: [{Pos, Value}]) -> boolean()
+    提供指定的位置的 新的值， 做个别字段的更新
+3. 数字更新
+    update_counter(Tab, Key, UpdateOp) -> Result
+    update_counter(Tab, Key, Incr, Default) -> Result
+
+    某个字段是数字， 只想单纯的进行加减操作 而不需要提前知道这个字段的值，把计算交给ets
+    This function destructively update the object with key Key in table Tab by adding Incr to the element at position Pos. The new counter value is returned. If no position is specified, the element directly following key (<keypos>+1) is updated.
