@@ -54,8 +54,8 @@ runtime_dependencies
 ## The process of starting an application
 
 ```js
-start(Application) -> ok | {error, Reason}
-start(Application, Type) -> ok | {error, Reason}
+    start(Application) -> ok | {error, Reason}
+    start(Application, Type) -> ok | {error, Reason}
 ```
 
 Starts Application. If it is not loaded, the application controller first loads it using load/1. It ensures that any included applications are loaded, but does not start them. That is assumed to be taken care of in the code for Application.
@@ -64,13 +64,14 @@ The application controller checks the value of the application specification key
 
 The application controller then creates an **application master** for the application. The application master becomes the group leader of all the processes in the application. I/O is forwarded to the previous group leader, though, this is just a way to identify processes that belong to the application. Used for example to find itself from any process, or, reciprocally, to kill them all when it terminates.
 
-The application master starts the application by calling the application callback function **Module:start/2** as defined by the application specification key mod.
+The application master starts the application by calling the application callback function **Module:start/2** as defined by the application specification key **mod**.
 
-**Restart strategy**
-Argument Type specifies the type of the application. If omitted, it defaults to temporary.
-If a permanent application terminates,
-    all other applications and the entire Erlang node are also terminated.
-If a transient application terminates with Reason == normal,
+**Type -> Restart strategy**
+Argument Type specifies the type of the application. If omitted, it defaults to **temporary**.
+**Priority Order : permanent -> transient -> temporary**
+If a **permanent** application terminates,
+    all other applications and the entire Erlang node are also terminated. the application is so dominant.
+If a **transient** application terminates with Reason == normal,
     this is reported but no other applications are terminated.
 If a transient application terminates abnormally,
     all other applications and the entire Erlang node are also terminated.
@@ -89,13 +90,16 @@ This function is called whenever an application is started using start/1,2, and 
 If the application is structured according to the OTP design principles as a supervision tree, this means starting the top supervisor of the tree.
 
 **StartType** defines the type of start:
-    normal if it is a normal startup.
-    normal also if the application is distributed and started at the current node because of a failover from another node, and the application specification key start_phases == undefined.
+    normal
+        if it is a normal startup.
+    normal also
+        if the application is distributed and started at the current node because of a failover from another node, and the application specification key start_phases == undefined.
     {takeover,Node}
         if the application is distributed and started at the current node because of a takeover from Node, either because takeover/2 has been called or because the current node has higher priority than Node.
-    {failover,Node} if the application is distributed and started at the current node because of a failover from Node, and the application specification key start_phases /= undefined.
+    {failover,Node}
+        if the application is distributed and started at the current node because of a failover from Node, and the application specification key start_phases /= undefined.
 
-StartArgs is the StartArgs argument defined by the application specification key mod.
+**StartArgs** is the StartArgs argument defined by the application specification key mod.
 
 The function is to return {ok,Pid} or {ok,Pid,State}, where Pid is the pid of the top supervisor and State is any term.
 If omitted, State defaults to []. If the application is stopped later, State is passed to Module:prep_stop/1.

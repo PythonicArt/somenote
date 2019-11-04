@@ -26,7 +26,9 @@ Authentication determines which nodes are allowed to communicate with each other
 **When a node tries to connect to another node, the magic cookies are compared. If they do not match, the connected node rejects the connection.**
 
 **the process of creating a cookie**
-At start-up, a node has a random atom assigned as its magic cookie and the cookie of other nodes is assumed to be nocookie. The first action of the Erlang network authentication server (auth) is then to read a file named $HOME/.erlang.cookie. If the file does not exist, it is created. The UNIX permissions mode of the file is set to octal 400 (read-only by user) and its contents are a random string. An atom Cookie is created from the contents of the file and the cookie of the local node is set to this using erlang:set_cookie(node(), Cookie). This also makes the local node assume that all other nodes have the same cookie Cookie.
+At start-up, a node has a random atom assigned as its magic cookie and the cookie of other nodes is assumed to be nocookie.
+The first action of the Erlang network authentication server (auth) is then to read a file named $HOME/.erlang.cookie.
+If the file does not exist, it is created. The UNIX permissions mode of the file is set to octal 400 (read-only by user) and its contents are a random string. An atom Cookie is created from the contents of the file and the cookie of the local node is set to this using erlang:set_cookie(node(), Cookie). This also makes the local node assume that all other nodes have the same cookie Cookie.
 
 Thus, groups of users with identical cookie files get Erlang nodes that can communicate freely and without interference from the magic cookie system. Users who want to run nodes on separate file systems must make certain that their cookie files are identical on the different file systems.
 

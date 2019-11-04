@@ -1,10 +1,15 @@
 # Generic supervisor behavior.
 
-This behavior module provides a supervisor, a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Worker processes are normally implemented using one of the gen_event, gen_server, or gen_statem behaviors. A supervisor implemented using this module has a standard set of interface functions and include functionality for tracing and error reporting. Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.
+This behavior module provides a supervisor, a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Worker processes are normally implemented using one of the gen_event, gen_server, or gen_state behaviors.
+A supervisor implemented using this module has a standard set of interface functions and include functionality for tracing and error reporting.
+Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.
 
 The supervisor is responsible for starting, stopping, and monitoring its child processes. The basic idea of a supervisor is that it must keep its child processes alive by restarting them when necessary.
 
-The children of a supervisor are defined as a list of child specifications. When the supervisor is started, the child processes are started in order from left to right according to this list. When the supervisor terminates, it first terminates its child processes in reversed start order, from right to left.
+The children of a supervisor are defined as a list of child specifications.
+1. When the supervisor is started, the child processes are started in order from left to right according to this list.
+2. When the supervisor terminates, it first terminates its child processes in reversed start order, from right to left.
+Apparently, it is a heap.
 
 
 # Start a supvisor
@@ -39,7 +44,7 @@ Args is any term that is passed as the argument to Module:init/1.
 ignore
     If Module:init/1 returns ignore, this function returns ignore as well, and the supervisor terminates with reason normal.
 
-{error,Term}
+{error, Term}
     If Module:init/1 fails or returns an incorrect value, this function returns {error,Term}, where Term is a term with information about the error, and the supervisor terminates with reason Term.
 
 {error, {shutdown, Reason}}
@@ -69,7 +74,7 @@ sup_flags() = #{strategy => strategy(),         % optional
 ## strategy
 A supervisor can have one of the following restart strategies specified with the strategy key in the above map:
 
-    one_for_one -
+    one_for_one(default) -
         If one child process terminates and is to be restarted, only that child process is affected. This is the default restart strategy.
 
     one_for_all -
@@ -82,6 +87,8 @@ A supervisor can have one of the following restart strategies specified with the
         A simplified one_for_one supervisor, where all child processes are dynamically added instances of the same process type, that is, running the same code.
 
 ## intensity & period
+It only allow it's child process to resart A times(intensity) **at the most** in B secondes(period).
+
 To prevent a supervisor from getting into an infinite loop of child process terminations and restarts, a maximum restart intensity is defined using two integer values specified with keys intensity and period in the above map.
 Assuming the values MaxR for intensity and MaxT for period, then, if more than MaxR restarts occur within MaxT seconds, the supervisor terminates all child processes and then itself. The termination reason for the supervisor itself in that case will be shutdown. intensity defaults to 1 and period defaults to 5.
 
@@ -93,7 +100,7 @@ child_spec() = #{id => child_id(),       % mandatory = term(), Not a pid().
                  start => mfargs(),      % mandatory
                  restart => restart() ,  % optional, = permanent | transient | temporary
                  shutdown => shutdown(), % optional, brutal_kill | timeout()
-                 type => worker(),       % optional
+                 type => worker(),       % optional = supervisor | worker(default)
                  modules => modules()}   % optional
 
      id
@@ -102,6 +109,7 @@ child_spec() = #{id => child_id(),       % mandatory = term(), Not a pid().
          Notice that this identifier on occations has been called "name". As far as possible, the terms "identifier" or "id" are now used but to keep backward compatibility, some occurences of "name" can still be found, for example in error messages.
 
     start
+        // **The child process is created in the start fun**
         start defines the function call used to start the child process.
         It must be a module-function-arguments tuple {M,F,A} used as apply(M,F,A).
         The start function must create and link to the child process, and must return {ok,Child} or {ok,Child,Info}, where Child is the pid of the child process and Info any term that is ignored by the supervisor.
@@ -116,17 +124,20 @@ child_spec() = #{id => child_id(),       % mandatory = term(), Not a pid().
 
     restart    
         restart defines when a terminated child process must be restarted.
-        A permanent child process is always restarted.
+        A permanent child process is always restarted, this is also limited by the SupFlags.
         A temporary child process is never restarted (even when the supervisor's restart strategy is rest_for_one or one_for_all and a sibling's death causes the temporary process to be terminated).
         A transient child process is restarted only if it terminates abnormally, that is, with another exit reason than normal, shutdown, or {shutdown,Term}.
         The restart key is optional. If it is not specified, it defaults to permanent.
 
     shutdown    
-        shutdown defines how a child process must be terminated.
+        shutdown defines how a child process must be terminated when the supervisor want to terminate it.
+        It is used to supply a way for some operation that is done in child process when the child need to be killed.
+        // brutal_kill
         brutal_kill means that the child process is unconditionally terminated using exit(Child,kill).
+        // timeout
         An integer time-out value means that the supervisor tells the child process to terminate by calling exit(Child,shutdown) and then wait for an exit signal with reason shutdown back from the child process. If no exit signal is received within the specified number of milliseconds, the child process is unconditionally terminated using exit(Child,kill).
+        // default
         The shutdown key is optional. If it is not specified, it defaults to 5000 if the child is of type worker and it defaults to infinity if the child is of type supervisor.
-
 
 ```
 
@@ -195,25 +206,30 @@ SupRef can be any of the following:
     ```
     Tells supervisor SupRef to delete the child specification identified by Id. The corresponding child process must not be running. Use terminate_child/2 to terminate it.
 
+    You can restart a child when it is terminted, but when it is deleted, you are not able to do that.
+
 计数
     ```js
-    count_children(SupRef) -> PropListOfCounts
-    Types
-    SupRef = sup_ref()
-    PropListOfCounts = [Count]
-    Count =
-        {specs, ChildSpecCount :: integer() >= 0} |
-        {active, ActiveProcessCount :: integer() >= 0} |
-        {supervisors, ChildSupervisorCount :: integer() >= 0} |
-        {workers, ChildWorkerCount :: integer() >= 0}
+        count_children(SupRef) -> PropListOfCounts
+        Types
+        SupRef = sup_ref()
+        PropListOfCounts = [Count]
+        Count =
+            {specs, ChildSpecCount :: integer() >= 0} |
+            {active, ActiveProcessCount :: integer() >= 0} |
+            {supervisors, ChildSupervisorCount :: integer() >= 0} |
+            {workers, ChildWorkerCount :: integer() >= 0}
     ```
     Returns a property list (see proplists) containing the counts for each of the following elements of the supervisor's child specifications and managed processes:
 
     specs
         The total count of children, dead or alive.
+
     active
         The count of all actively running child processes managed by this supervisor. For a simple_one_for_one supervisors, no check is done to ensure that each child process is still alive, although the result provided here is likely to be very accurate unless the supervisor is heavily overloaded.
+
     supervisors
         The count of all children marked as child_type = supervisor in the specification list, regardless if the child process is still alive.
+
     workers
         The count of all children marked as child_type = worker in the specification list, regardless if the child process is still alive.
