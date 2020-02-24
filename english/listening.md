@@ -1,3 +1,4 @@
+# 2020-2-11
 expedite
 brutalize
 tyranny
@@ -23,3 +24,24 @@ petition
 
 lure 英音
 transplant
+
+# 2020-2-12
+
+Geneva
+coronavirus
+down the road
+
+territory
+
+deport
+Jamaica
+order a stay
+deprotee
+due to
+offender
+reiterate
+
+Afghan
+Kabul
+Taliban
+rural
