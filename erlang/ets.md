@@ -139,7 +139,6 @@ Matches the objects in table Tab against pattern Pattern.
 2 返回匹配到的元组
 match_object(Tab, Pattern) -> [Object]
 
-meridiem
 
 5. 搜索
     select(Tab, MatchExpression) -> [Match]
